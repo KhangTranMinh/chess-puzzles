@@ -63,22 +63,24 @@ function toFen(squares) {
 /* ── Board rendering (view 3) ── */
 let boardSquares, boardSelected, boardPalettePiece;
 const HOLDING_PALETTE = -1;
+let editMode = false;
 
 function renderBoard() {
   $chessboard.replaceChildren();
   boardSquares.forEach((piece, idx) => {
     const rank = Math.floor(idx / 8), file = idx % 8;
     const sq = document.createElement("button");
-    sq.className = `square ${(rank + file) % 2 ? "dark" : "light"}${boardSelected === idx && boardSelected !== HOLDING_PALETTE ? " selected-square" : ""}`;
+    sq.className = `square ${(rank + file) % 2 ? "dark" : "light"}${boardSelected === idx && boardSelected !== HOLDING_PALETTE ? " selected-square" : ""}${editMode ? " editing" : ""}`;
     sq.innerHTML =
       `${file === 0 ? `<small class="rank-label">${8 - rank}</small>` : ""}` +
       `${rank === 7 ? `<small class="file-label">${FILES[file]}</small>` : ""}` +
       `<span class="${piece && piece[0] === "w" ? "white-piece" : "black-piece" || ""}">${piece ? PIECES[piece] : ""}</span>`;
     sq.addEventListener("click", () => {
-      if (boardSelected === HOLDING_PALETTE && !boardSquares[idx]) {
+      if (!editMode) return;
+      if (boardSelected === HOLDING_PALETTE) {
         boardSquares[idx] = boardPalettePiece;
-        boardSelected = null;
-      } else if (boardSelected !== null && boardSelected !== HOLDING_PALETTE) {
+        // Stay in placement mode so user can place on multiple cells
+      } else if (boardSelected !== null) {
         boardSquares[idx] = boardSquares[boardSelected];
         boardSquares[boardSelected] = null;
         boardSelected = null;
@@ -107,6 +109,16 @@ function initPalette() {
     });
     $palette.append(btn);
   });
+}
+
+function updatePaletteState() {
+  const palette = document.getElementById("palette");
+  if (editMode) {
+    palette.classList.remove("disabled");
+  } else {
+    palette.classList.add("disabled");
+    boardSelected = null;
+  }
 }
 
 /* ── View 1: Image list ── */
@@ -196,18 +208,40 @@ function openBoard(exercise) {
   const initial = fromFen(exercise.fen);
   boardSquares = [...initial];
   boardSelected = null;
+  editMode = false;
   initPalette();
+  updatePaletteState();
   renderBoard();
 
+  const editBtn = document.getElementById("edit-board");
+  editBtn.onclick = () => {
+    if (!editMode) {
+      // Enter edit mode: clear board, enable palette, button becomes Confirm
+      boardSquares = Array(64).fill(null);
+      boardSelected = null;
+      editMode = true;
+      updatePaletteState();
+      editBtn.textContent = "Confirm";
+      editBtn.classList.remove("quiet-button");
+      renderBoard();
+    } else {
+      // Confirm: lock board, disable palette, button becomes Edit
+      editMode = false;
+      boardSelected = null;
+      updatePaletteState();
+      editBtn.textContent = "Edit";
+      editBtn.classList.add("quiet-button");
+      renderBoard();
+    }
+  };
 
   document.getElementById("reset-board").onclick = () => {
     boardSquares = [...initial];
     boardSelected = null;
-    renderBoard();
-  };
-  document.getElementById("clear-board").onclick = () => {
-    boardSquares = Array(64).fill(null);
-    boardSelected = null;
+    editMode = false;
+    updatePaletteState();
+    editBtn.textContent = "Edit";
+    editBtn.classList.add("quiet-button");
     renderBoard();
   };
 

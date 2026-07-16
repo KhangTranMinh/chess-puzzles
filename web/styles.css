@@ -257,6 +257,10 @@ main {
   gap: 5px;
   margin-bottom: 14px;
 }
+.palette.disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}
 .palette button {
   border: 2px solid #d4b896;
   border-radius: 8px;
@@ -285,8 +289,11 @@ main {
   border: 0;
   padding: 0;
   font-size: clamp(2.4rem, 5vw, 4.5rem);
-  cursor: pointer;
+  cursor: default;
   transition: background-color 0.1s;
+}
+.square.editing {
+  cursor: pointer;
 }
 .square.light { background: #edd8b8; }
 .square.dark  { background: #a56a43; }
