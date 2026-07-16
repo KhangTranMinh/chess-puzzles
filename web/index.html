@@ -8,11 +8,16 @@
   </head>
   <body>
     <main>
+      <nav class="language-switch" aria-label="Language">
+        <button id="language-en" type="button">English</button>
+        <button id="language-vi" type="button">Tiếng Việt</button>
+      </nav>
+
       <!-- VIEW 1: Image Picker -->
       <section id="view-images" class="view">
         <header class="view-header">
-          <h1>♟ Chess Puzzles</h1>
-          <p>Pick a photo to start solving!</p>
+          <h1 id="app-title">♟ Chess Puzzles</h1>
+          <p id="app-subtitle">Pick a photo to start solving!</p>
         </header>
         <div id="image-grid" class="image-grid"></div>
         <p id="image-message" class="message" hidden></p>
@@ -46,7 +51,7 @@
           </div>
           <div class="editor-panel">
             <div id="chessboard" class="chessboard" role="grid" aria-label="Editable chess board"></div>
-            <p class="fen"><span>FEN</span><code id="fen-code"></code></p>
+            <p class="fen"><span id="fen-label">FEN</span><code id="fen-code"></code></p>
           </div>
         </div>
       </section>
@@ -68,6 +73,6 @@
       </button>
     </template>
 
-    <script src="/app.js?v=3"></script>
+    <script src="/app.js?v=5"></script>
   </body>
 </html>

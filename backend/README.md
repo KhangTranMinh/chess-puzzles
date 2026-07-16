@@ -1,21 +1,30 @@
-# Board splitter
+# Backend Notes
 
-This is the first implementation stage. It detects the six printed chess
-diagrams on one photographed book page and perspective-corrects each one into
-an 800-by-800 PNG.
+The root `README.md` is the main project guide. This file only covers backend
+workflows that are useful when editing or debugging Python code.
 
-## Run locally
+## Board splitter CLI
+
+Use this command when you want to test only the image-processing step, without
+opening the browser app:
 
 ```sh
-python3 -m venv .venv
-.venv/bin/pip install -r backend/requirements.txt
 .venv/bin/python backend/board_splitter.py puzzles-images/IMG_1345.HEIC output/IMG_1345
 ```
 
-Inspect `detected-boards.jpg` before using the cropped boards for FEN
-recognition. Red outlines identify the boundary used for each crop and numbers
-show the reading order: top-left to bottom-right.
+The command writes `board-01.png` through `board-06.png` plus
+`detected-boards.jpg`.
 
-The splitter raises `BoardDetectionError` if it cannot establish six diagrams.
-It only interpolates one missing middle-row board when the other five confirm
-an unambiguous 2-by-3 layout; all other detection failures require review.
+Inspect `detected-boards.jpg` before trusting the crops. If the red outlines are
+wrong, FEN recognition will also be unreliable.
+
+## Detection behavior
+
+`board_splitter.py` expects exactly six chess diagrams on the page.
+
+It raises `BoardDetectionError` when it cannot safely establish six boards. It
+only recovers one missing board in a narrow case: five detected boards that
+clearly form a 2-by-3 layout with the missing board in the middle row.
+
+That strict behavior is intentional. A clear failure is better than silently
+generating wrong crops.

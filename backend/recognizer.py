@@ -8,6 +8,8 @@ from pathlib import Path
 def canonical_fen(fen: str) -> str:
     """Validate a position-only FEN and collapse adjacent empty-square digits."""
 
+    # FEN can include extra fields after the board position. This app only
+    # needs the first field because the UI edits piece placement, not game state.
     ranks = fen.strip().split()[0].split("/")
     if len(ranks) != 8:
         raise ValueError("A FEN position must contain exactly eight ranks.")
@@ -18,6 +20,8 @@ def canonical_fen(fen: str) -> str:
         normalized = ""
         for character in rank:
             if character in "12345678":
+                # Empty squares may arrive as separate digits. We accumulate
+                # them and write one normalized digit later.
                 width += int(character)
                 empties += int(character)
             elif character in "prnbqkPRNBQK":
@@ -47,8 +51,12 @@ def recognize_fen(board_path: Path) -> tuple[str | None, str]:
     try:
         from chessimg2pos import predict_fen
     except ImportError:
+        # The app still works without the optional recognizer dependency. The
+        # browser will open an empty editable board instead.
         return None, "recognizer_unavailable"
     try:
         return canonical_fen(predict_fen(str(board_path))), "auto_predicted"
     except Exception:
+        # Model errors should not block manual review. Returning a status lets
+        # the frontend decide how much to explain to the user later.
         return None, "recognition_failed"
