@@ -1,0 +1,7 @@
+.git
+.env
+.venv
+output
+output-run
+data
+node_modules

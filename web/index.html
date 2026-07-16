@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Chess Puzzle Viewer</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main>
+      <section class="hero">
+        <div>
+          <p class="eyebrow">Chess exercise viewer</p>
+          <h1>Rebuild every position, then explore it.</h1>
+          <p class="intro">Each page is split into six diagrams. Use its crop as reference and the editable board to set up any position.</p>
+        </div>
+        <button id="refresh">Refresh images</button>
+      </section>
+      <p id="message" class="message" hidden></p>
+      <section id="exercise-grid" class="page-grid"></section>
+    </main>
+    <template id="exercise-template">
+      <article class="exercise-card">
+        <header>
+          <div><p class="eyebrow source-name"></p><h2></h2></div>
+          <span class="status"></span>
+        </header>
+        <img class="source-board" alt="Source chess diagram" />
+        <div class="controls">
+          <label>First move<select class="side-to-move"><option value="w">White</option><option value="b">Black</option></select></label>
+          <button class="reset">Reset</button>
+          <button class="quiet-button clear">Clear</button>
+        </div>
+        <div class="palette" aria-label="Piece palette"></div>
+        <div class="chessboard" role="grid" aria-label="Editable chess board"></div>
+        <p class="fen"><span>FEN</span><code></code></p>
+      </article>
+    </template>
+    <template id="page-template">
+      <section class="page-card">
+        <header class="page-header">
+          <div><p class="eyebrow page-source"></p><h2>Puzzle page</h2></div>
+          <span class="page-count"></span>
+        </header>
+        <div class="puzzle-grid"></div>
+      </section>
+    </template>
+    <script src="/app.js"></script>
+  </body>
+</html>
