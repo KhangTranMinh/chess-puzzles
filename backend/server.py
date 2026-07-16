@@ -51,6 +51,7 @@ def cache_is_current(entry: dict, source: Path) -> bool:
     return (
         entry.get("mtime_ns") == stat.st_mtime_ns
         and entry.get("size") == stat.st_size
+        and entry.get("page_key") == page_key(source)
         and len(paths) == 6
         and len(entry.get("predictions", [])) == 6
         and all((BOARD_DIRECTORY / path).is_file() for path in paths)
@@ -75,41 +76,48 @@ def process_page(source: Path) -> dict:
     stat = source.stat()
     return {
         "mtime_ns": stat.st_mtime_ns,
+        "page_key": key,
         "size": stat.st_size,
         "board_paths": board_paths,
         "predictions": predictions,
     }
 
 
-def exercises(refresh: bool = False) -> dict:
-    """Return cached exercises, splitting only new or changed source images."""
+def _exercise_list(source: Path, entry: dict) -> list[dict]:
+    predictions = entry.get("predictions", [])
+    return [
+        {
+            "id": f"{source.stem}-{idx + 1}",
+            "source_image": source.name,
+            "board_index": idx + 1,
+            "image_url": f"/generated/{board_path}",
+            "fen": predictions[idx].get("fen") if idx < len(predictions) else None,
+            "recognition_status": predictions[idx].get("recognition_status", "recognizer_unavailable") if idx < len(predictions) else "recognizer_unavailable",
+        }
+        for idx, board_path in enumerate(entry["board_paths"])
+    ]
+
+
+def process_single_image(name: str) -> dict:
+    """Crop and recognize one named source image. Returns {exercises, error}."""
+    source = SOURCE_DIRECTORY / name
+    if not source.is_file():
+        return {"exercises": [], "error": f"Image {name} not found."}
+    if source.suffix.lower() not in IMAGE_EXTENSIONS:
+        return {"exercises": [], "error": f"Unsupported image format: {source.suffix}"}
 
     with PROCESSING_LOCK:
-        cache = {} if refresh else CACHE.read()
-        sources = source_images()
-        cache = {name: entry for name, entry in cache.items() if name in {path.name for path in sources}}
-        result, errors = [], []
-        for source in sources:
-            try:
-                entry = cache.get(source.name, {})
-                if refresh or not cache_is_current(entry, source):
-                    entry = process_page(source)
-                    cache[source.name] = entry
-                predictions = entry.get("predictions", [])
-                for index, board_path in enumerate(entry["board_paths"], start=1):
-                    prediction = predictions[index - 1] if len(predictions) == 6 else {}
-                    result.append({
-                        "id": f"{source.stem}-{index}",
-                        "source_image": source.name,
-                        "board_index": index,
-                        "image_url": f"/generated/{board_path}",
-                        "fen": prediction.get("fen"),
-                        "recognition_status": prediction.get("recognition_status", "recognizer_unavailable"),
-                    })
-            except BoardDetectionError as error:
-                errors.append(f"{source.name}: {error}")
+        cache = CACHE.read()
+        entry = cache.get(name, {})
+        try:
+            if not cache_is_current(entry, source):
+                entry = process_page(source)
+            cache[name] = entry
+        except BoardDetectionError as error:
+            return {"exercises": [], "error": str(error)}
         CACHE.write(cache)
-    return {"exercises": result, "errors": errors}
+
+    return {"exercises": _exercise_list(source, entry)}
 
 
 def safe_child(root: Path, request_path: str) -> Path | None:
@@ -148,8 +156,16 @@ class RequestHandler(BaseHTTPRequestHandler):
         path = urlparse(self.path).path
         if path == "/api/health":
             self.send_json({"status": "ok"})
-        elif path == "/api/exercises":
-            self.send_json(exercises())
+        elif path == "/api/images":
+            result = []
+            cache = CACHE.read()
+            for image_path in source_images():
+                entry = cache.get(image_path.name, {})
+                result.append({
+                    "name": image_path.name,
+                    "processed": cache_is_current(entry, image_path),
+                })
+            self.send_json({"images": result})
         elif path.startswith("/generated/"):
             target = safe_child(BOARD_DIRECTORY, path.removeprefix("/generated/"))
             if target is None:
@@ -165,14 +181,28 @@ class RequestHandler(BaseHTTPRequestHandler):
                 self.send_file(target)
 
     def do_POST(self) -> None:  # noqa: N802
-        if urlparse(self.path).path == "/api/exercises/refresh":
-            self.send_json(exercises(refresh=True))
-        elif urlparse(self.path).path == "/api/cache/clear":
+        req_path = urlparse(self.path).path
+        if req_path == "/api/cache/clear":
             with PROCESSING_LOCK:
                 if DATA_DIRECTORY.exists():
                     shutil.rmtree(DATA_DIRECTORY)
                 BOARD_DIRECTORY.mkdir(parents=True, exist_ok=True)
+            CACHE.write({})
             self.send_json({"status": "cleared"})
+        elif req_path.startswith("/api/images/") and req_path.endswith("/process"):
+            parts = req_path.removeprefix("/api/images/").removesuffix("/process")
+            name = unquote(parts).strip()
+            if not name or "/" in name or "\\" in name:
+                self.send_json({"exercises": [], "error": "Invalid image name."}, HTTPStatus.BAD_REQUEST)
+                return
+            data = process_single_image(name)
+            if data.get("error"):
+                if "not found" in data["error"]:
+                    self.send_json(data, HTTPStatus.NOT_FOUND)
+                else:
+                    self.send_json(data, HTTPStatus.UNPROCESSABLE_ENTITY)
+            else:
+                self.send_json(data)
         else:
             self.send_error(HTTPStatus.NOT_FOUND)
 

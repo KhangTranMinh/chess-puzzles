@@ -1,21 +1,46 @@
 const EMPTY_FEN = "8/8/8/8/8/8/8/8";
 const PIECES = {
   wK: "♔", wQ: "♕", wR: "♖", wB: "♗", wN: "♘", wP: "♙",
-  bK: "♚", bQ: "♛", bR: "♝", bN: "♞", bP: "♟",
+  bK: "♚", bQ: "♛", bR: "♜", bB: "♝", bN: "♞", bP: "♟",
 };
 const PALETTE = Object.keys(PIECES);
 const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"];
 
-function fromFen(fen = EMPTY_FEN) {
+/* ── DOM refs ── */
+const $viewImages  = document.getElementById("view-images");
+const $viewPuzzles = document.getElementById("view-puzzles");
+const $viewBoard   = document.getElementById("view-board");
+
+const $imageGrid    = document.getElementById("image-grid");
+const $imageMessage = document.getElementById("image-message");
+
+const $puzzlePageName = document.getElementById("puzzle-page-name");
+const $puzzleGrid     = document.getElementById("puzzle-grid");
+const $puzzleMessage  = document.getElementById("puzzle-message");
+
+const $boardTitle     = document.getElementById("board-title");
+const $boardSourceImg = document.getElementById("board-source-img");
+const $boardStatus    = document.getElementById("board-status");
+const $chessboard     = document.getElementById("chessboard");
+const $fenCode        = document.getElementById("fen-code");
+const $palette        = document.getElementById("palette");
+
+/* ── Navigation ── */
+function showView(view) {
+  $viewImages.hidden  = view !== "images";
+  $viewPuzzles.hidden = view !== "puzzles";
+  $viewBoard.hidden   = view !== "board";
+}
+
+/* ── FEN helpers ── */
+function fromFen(fen) {
   const squares = Array(64).fill(null);
-  // The API returns null until a recognition model has produced a trustworthy
-  // FEN. In that case the editor must start empty, not try to call split() on null.
   (fen || EMPTY_FEN).split("/").forEach((rank, rankIndex) => {
     let file = 0;
-    for (const character of rank) {
-      if (/\d/.test(character)) file += Number(character);
+    for (const ch of rank) {
+      if (/\d/.test(ch)) file += Number(ch);
       else {
-        squares[rankIndex * 8 + file] = `${character === character.toUpperCase() ? "w" : "b"}${character.toUpperCase()}`;
+        squares[rankIndex * 8 + file] = `${ch === ch.toUpperCase() ? "w" : "b"}${ch.toUpperCase()}`;
         file += 1;
       }
     }
@@ -25,129 +50,179 @@ function fromFen(fen = EMPTY_FEN) {
 
 function toFen(squares) {
   return Array.from({ length: 8 }, (_, rank) => {
-    let empty = 0;
-    let text = "";
+    let empty = 0, text = "";
     for (let file = 0; file < 8; file += 1) {
       const piece = squares[rank * 8 + file];
       if (!piece) empty += 1;
-      else {
-        if (empty) text += empty;
-        empty = 0;
-        text += piece[0] === "w" ? piece[1] : piece[1].toLowerCase();
-      }
+      else { if (empty) text += empty; empty = 0; text += piece[0] === "w" ? piece[1] : piece[1].toLowerCase(); }
     }
     return `${text}${empty || ""}`;
   }).join("/");
 }
 
-function makeExercise(exercise) {
-  const fragment = document.getElementById("exercise-template").content.cloneNode(true);
-  const card = fragment.querySelector("article");
-  const initial = fromFen(exercise.fen);
-  let squares = [...initial];
-  let selectedSquare = null;
-  let palettePiece = "wK";
-  const board = fragment.querySelector(".chessboard");
-  const fen = fragment.querySelector("code");
-  const sideToMove = fragment.querySelector(".side-to-move");
+/* ── Board rendering (view 3) ── */
+let boardSquares, boardSelected, boardPalettePiece;
+const HOLDING_PALETTE = -1;
 
-  fragment.querySelector(".source-name").textContent = `Puzzle ${exercise.board_index}`;
-  fragment.querySelector("h2").textContent = `Exercise ${exercise.board_index}`;
-  fragment.querySelector(".status").textContent = exercise.recognition_status === "auto_predicted" ? "AI prediction" : "Manual setup";
-  const image = fragment.querySelector(".source-board");
-  image.src = exercise.image_url;
-  image.alt = `Source chess diagram for exercise ${exercise.board_index}`;
-
-  function drawBoard() {
-    board.replaceChildren();
-    squares.forEach((piece, index) => {
-      const rank = Math.floor(index / 8);
-      const file = index % 8;
-      const square = document.createElement("button");
-      square.className = `square ${(rank + file) % 2 ? "dark" : "light"}${selectedSquare === index ? " selected-square" : ""}`;
-      square.innerHTML = `${file === 0 ? `<small class="rank-label">${8 - rank}</small>` : ""}${rank === 7 ? `<small class="file-label">${FILES[file]}</small>` : ""}<span class="${piece?.startsWith("w") ? "white-piece" : "black-piece"}">${piece ? PIECES[piece] : ""}</span>`;
-      square.addEventListener("click", () => {
-        // No chess-rule validation: this is intentionally a free-position
-        // editor, so photographed exercises can be reconstructed quickly.
-        if (selectedSquare !== null) {
-          squares[index] = squares[selectedSquare];
-          squares[selectedSquare] = null;
-          selectedSquare = null;
-        } else if (squares[index]) selectedSquare = index;
-        else squares[index] = palettePiece;
-        drawBoard();
-      });
-      board.append(square);
+function renderBoard() {
+  $chessboard.replaceChildren();
+  boardSquares.forEach((piece, idx) => {
+    const rank = Math.floor(idx / 8), file = idx % 8;
+    const sq = document.createElement("button");
+    sq.className = `square ${(rank + file) % 2 ? "dark" : "light"}${boardSelected === idx && boardSelected !== HOLDING_PALETTE ? " selected-square" : ""}`;
+    sq.innerHTML =
+      `${file === 0 ? `<small class="rank-label">${8 - rank}</small>` : ""}` +
+      `${rank === 7 ? `<small class="file-label">${FILES[file]}</small>` : ""}` +
+      `<span class="${piece && piece[0] === "w" ? "white-piece" : "black-piece" || ""}">${piece ? PIECES[piece] : ""}</span>`;
+    sq.addEventListener("click", () => {
+      if (boardSelected === HOLDING_PALETTE && !boardSquares[idx]) {
+        boardSquares[idx] = boardPalettePiece;
+        boardSelected = null;
+      } else if (boardSelected !== null && boardSelected !== HOLDING_PALETTE) {
+        boardSquares[idx] = boardSquares[boardSelected];
+        boardSquares[boardSelected] = null;
+        boardSelected = null;
+      } else if (boardSquares[idx]) {
+        boardSelected = idx;
+      }
+      renderBoard();
     });
-    fen.textContent = `${toFen(squares)} ${sideToMove.value} - - 0 1`;
-  }
-
-  const palette = fragment.querySelector(".palette");
-  PALETTE.forEach((piece) => {
-    const button = document.createElement("button");
-    button.textContent = PIECES[piece];
-    button.className = piece === palettePiece ? "selected-piece" : "";
-    button.setAttribute("aria-label", `Place ${piece}`);
-    button.addEventListener("click", () => {
-      palettePiece = piece;
-      selectedSquare = null;
-      [...palette.children].forEach((item) => item.classList.toggle("selected-piece", item === button));
-      drawBoard();
-    });
-    palette.append(button);
+    $chessboard.append(sq);
   });
-  fragment.querySelector(".reset").addEventListener("click", () => { squares = [...initial]; selectedSquare = null; drawBoard(); });
-  fragment.querySelector(".clear").addEventListener("click", () => { squares = Array(64).fill(null); selectedSquare = null; drawBoard(); });
-  sideToMove.addEventListener("change", drawBoard);
-  drawBoard();
-  return fragment;
+  $fenCode.textContent = `${toFen(boardSquares)} w - - 0 1`;
 }
 
-async function load(refresh = false) {
-  const message = document.getElementById("message");
-  const refreshButton = document.getElementById("refresh");
-  refreshButton.disabled = true;
-  refreshButton.textContent = "Processing…";
-  message.hidden = true;
-  try {
-    const response = await fetch(refresh ? "/api/exercises/refresh" : "/api/exercises", { method: refresh ? "POST" : "GET" });
-    if (!response.ok) throw new Error(`API returned ${response.status}`);
-    const data = await response.json();
-    const grid = document.getElementById("exercise-grid");
-    const pages = data.exercises.reduce((grouped, exercise) => {
-      (grouped[exercise.source_image] ||= []).push(exercise);
-      return grouped;
-    }, {});
-    const pageCards = Object.entries(pages).map(([sourceImage, pageExercises]) => {
-      const page = document.getElementById("page-template").content.cloneNode(true);
-      page.querySelector(".page-source").textContent = sourceImage;
-      page.querySelector(".page-count").textContent = `${pageExercises.length} puzzles`;
-      page.querySelector(".puzzle-grid").append(...pageExercises.map(makeExercise));
-      return page;
+function initPalette() {
+  $palette.replaceChildren();
+  boardPalettePiece = "wK";
+  PALETTE.forEach((piece) => {
+    const btn = document.createElement("button");
+    btn.textContent = PIECES[piece];
+    btn.className = piece === boardPalettePiece ? "selected-piece" : "";
+    btn.addEventListener("click", () => {
+      boardPalettePiece = piece;
+      boardSelected = HOLDING_PALETTE;
+      [...$palette.children].forEach((c) => c.classList.toggle("selected-piece", c === btn));
+      renderBoard();
     });
-    grid.replaceChildren(...pageCards);
-    // Keep the page from auto-focusing any puzzle card or board after render.
-    const activeElement = document.activeElement;
-    if (activeElement && grid.contains(activeElement) && typeof activeElement.blur === "function") {
-      activeElement.blur();
+    $palette.append(btn);
+  });
+}
+
+/* ── View 1: Image list ── */
+async function loadImageList() {
+  $imageMessage.hidden = true;
+  try {
+    const res = await fetch("/api/images");
+    if (!res.ok) throw new Error(`API returned ${res.status}`);
+    const { images } = await res.json();
+    $imageGrid.replaceChildren();
+    if (!images.length) {
+      $imageMessage.textContent = "No images found in puzzles-images/. Add some photos to get started!";
+      $imageMessage.classList.remove("error");
+      $imageMessage.hidden = false;
+      return;
     }
-    if (data.errors.length) {
-      message.textContent = data.errors.join(" ");
-      message.classList.add("error");
-      message.hidden = false;
-    } else if (!data.exercises.length) {
-      message.textContent = "No supported images found in puzzles-images/.";
-      message.hidden = false;
-    }
-  } catch (error) {
-    message.textContent = `Unable to load exercises: ${error.message}`;
-    message.classList.add("error");
-    message.hidden = false;
-  } finally {
-    refreshButton.disabled = false;
-    refreshButton.textContent = "Refresh images";
+    images.forEach((img) => {
+      const card = document.getElementById("image-card-template").content.cloneNode(true);
+      card.querySelector(".image-card-name").textContent = img.name;
+      const badge = card.querySelector(".image-card-badge");
+      badge.textContent = img.processed ? "Ready" : "Tap to process";
+      badge.className = `image-card-badge ${img.processed ? "ready" : ""}`;
+      card.querySelector(".image-card").addEventListener("click", () => openPuzzlePage(img.name));
+      $imageGrid.append(card);
+    });
+  } catch (err) {
+    $imageMessage.textContent = `Could not load images: ${err.message}`;
+    $imageMessage.classList.add("error");
+    $imageMessage.hidden = false;
   }
 }
 
-document.getElementById("refresh").addEventListener("click", () => load(true));
-load();
+/* ── View 2: Puzzle grid for one image ── */
+let currentImageName = null;
+let currentExercises = [];
+
+function openPuzzlePage(name) {
+  currentImageName = name;
+  $puzzlePageName.textContent = name;
+  $puzzleMessage.hidden = true;
+  $puzzleGrid.replaceChildren();
+  showView("puzzles");
+  loadPuzzles(name);
+}
+
+async function loadPuzzles(name) {
+  // Show skeleton cards while loading
+  for (let i = 0; i < 6; i += 1) {
+    const card = document.createElement("div");
+    card.className = "puzzle-card";
+    card.innerHTML = `<div class="skeleton skeleton-img"></div><span class="puzzle-number">Puzzle ${i + 1}</span><span class="puzzle-fen-label">Processing…</span>`;
+    $puzzleGrid.append(card);
+  }
+
+  try {
+    const res = await fetch(`/api/images/${encodeURIComponent(name)}/process`, { method: "POST" });
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || `Server error: ${res.status}`);
+
+    currentExercises = data.exercises;
+    $puzzleGrid.replaceChildren();
+    data.exercises.forEach((ex) => {
+      const card = document.getElementById("puzzle-card-template").content.cloneNode(true);
+      card.querySelector("img").src = ex.image_url;
+      card.querySelector("img").alt = `Puzzle ${ex.board_index}`;
+      card.querySelector(".puzzle-number").textContent = `Puzzle ${ex.board_index}`;
+      card.querySelector(".puzzle-fen-label").textContent = "";
+      card.querySelector(".puzzle-card").addEventListener("click", () => openBoard(ex));
+      $puzzleGrid.append(card);
+    });
+  } catch (err) {
+    $puzzleGrid.replaceChildren();
+    $puzzleMessage.textContent = `Failed to process image: ${err.message}`;
+    $puzzleMessage.classList.add("error");
+    $puzzleMessage.hidden = false;
+  }
+}
+
+/* ── View 3: Single puzzle board ── */
+function openBoard(exercise) {
+  $boardTitle.textContent = `${currentImageName} · Puzzle ${exercise.board_index}`;
+  $boardSourceImg.src = exercise.image_url;
+  $boardSourceImg.alt = `Source diagram for puzzle ${exercise.board_index}`;
+  $boardStatus.textContent = "";
+  $boardStatus.className = "status-badge";
+
+  const initial = fromFen(exercise.fen);
+  boardSquares = [...initial];
+  boardSelected = null;
+  initPalette();
+  renderBoard();
+
+
+  document.getElementById("reset-board").onclick = () => {
+    boardSquares = [...initial];
+    boardSelected = null;
+    renderBoard();
+  };
+  document.getElementById("clear-board").onclick = () => {
+    boardSquares = Array(64).fill(null);
+    boardSelected = null;
+    renderBoard();
+  };
+
+  showView("board");
+}
+
+/* ── Back navigation ── */
+document.getElementById("back-to-images").addEventListener("click", () => {
+  showView("images");
+  loadImageList();
+});
+document.getElementById("back-to-puzzles").addEventListener("click", () => {
+  showView("puzzles");
+});
+
+/* ── Start ── */
+showView("images");
+loadImageList();

@@ -8,43 +8,66 @@
   </head>
   <body>
     <main>
-      <section class="hero">
-        <div>
-          <p class="eyebrow">Chess exercise viewer</p>
-          <h1>Rebuild every position, then explore it.</h1>
-          <p class="intro">Each page is split into six diagrams. Use its crop as reference and the editable board to set up any position.</p>
-        </div>
-        <button id="refresh">Refresh images</button>
+      <!-- VIEW 1: Image Picker -->
+      <section id="view-images" class="view">
+        <header class="view-header">
+          <h1>♟ Chess Puzzles</h1>
+          <p>Pick a photo to start solving!</p>
+        </header>
+        <div id="image-grid" class="image-grid"></div>
+        <p id="image-message" class="message" hidden></p>
       </section>
-      <p id="message" class="message" hidden></p>
-      <section id="exercise-grid" class="page-grid"></section>
+
+      <!-- VIEW 2: Puzzle Grid -->
+      <section id="view-puzzles" class="view" hidden>
+        <header class="view-header">
+          <button id="back-to-images" class="back-button" aria-label="Back to photos">← Back</button>
+          <h2 id="puzzle-page-name"></h2>
+        </header>
+        <div id="puzzle-grid" class="puzzle-grid"></div>
+        <p id="puzzle-message" class="message" hidden></p>
+      </section>
+
+      <!-- VIEW 3: Single Puzzle -->
+      <section id="view-board" class="view" hidden>
+        <header class="view-header">
+          <button id="back-to-puzzles" class="back-button" aria-label="Back to puzzles">← Back</button>
+          <h2 id="board-title"></h2>
+        </header>
+        <div class="board-layout">
+          <div class="source-panel">
+            <img id="board-source-img" alt="Source chess diagram" />
+            <p id="board-status" class="status-badge"></p>
+            <div class="controls">
+              <button id="reset-board">Reset</button>
+              <button id="clear-board" class="quiet-button">Clear</button>
+            </div>
+            <div id="palette" class="palette" aria-label="Piece palette"></div>
+          </div>
+          <div class="editor-panel">
+            <div id="chessboard" class="chessboard" role="grid" aria-label="Editable chess board"></div>
+            <p class="fen"><span>FEN</span><code id="fen-code"></code></p>
+          </div>
+        </div>
+      </section>
     </main>
-    <template id="exercise-template">
-      <article class="exercise-card">
-        <header>
-          <div><p class="eyebrow source-name"></p><h2></h2></div>
-          <span class="status"></span>
-        </header>
-        <img class="source-board" alt="Source chess diagram" />
-        <div class="controls">
-          <label>First move<select class="side-to-move"><option value="w">White</option><option value="b">Black</option></select></label>
-          <button class="reset">Reset</button>
-          <button class="quiet-button clear">Clear</button>
-        </div>
-        <div class="palette" aria-label="Piece palette"></div>
-        <div class="chessboard" role="grid" aria-label="Editable chess board"></div>
-        <p class="fen"><span>FEN</span><code></code></p>
-      </article>
+
+    <template id="image-card-template">
+      <button class="image-card">
+        <div class="image-card-icon">♟</div>
+        <span class="image-card-name"></span>
+        <span class="image-card-badge"></span>
+      </button>
     </template>
-    <template id="page-template">
-      <section class="page-card">
-        <header class="page-header">
-          <div><p class="eyebrow page-source"></p><h2>Puzzle page</h2></div>
-          <span class="page-count"></span>
-        </header>
-        <div class="puzzle-grid"></div>
-      </section>
+
+    <template id="puzzle-card-template">
+      <button class="puzzle-card">
+        <img alt="Puzzle crop" />
+        <span class="puzzle-number"></span>
+        <span class="puzzle-fen-label"></span>
+      </button>
     </template>
+
     <script src="/app.js"></script>
   </body>
 </html>
