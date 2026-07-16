@@ -76,15 +76,16 @@ function renderBoard() {
       `${rank === 7 ? `<small class="file-label">${FILES[file]}</small>` : ""}` +
       `<span class="${piece && piece[0] === "w" ? "white-piece" : "black-piece" || ""}">${piece ? PIECES[piece] : ""}</span>`;
     sq.addEventListener("click", () => {
-      if (!editMode) return;
-      if (boardSelected === HOLDING_PALETTE) {
+      if (editMode && boardSelected === HOLDING_PALETTE) {
+        // Palette placement mode: drop piece on this square, stay in placement mode
         boardSquares[idx] = boardPalettePiece;
-        // Stay in placement mode so user can place on multiple cells
       } else if (boardSelected !== null) {
+        // Move selected piece to this square (any square, empty or occupied)
         boardSquares[idx] = boardSquares[boardSelected];
         boardSquares[boardSelected] = null;
         boardSelected = null;
       } else if (boardSquares[idx]) {
+        // Select this piece
         boardSelected = idx;
       }
       renderBoard();
