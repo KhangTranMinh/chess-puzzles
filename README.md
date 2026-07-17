@@ -56,7 +56,14 @@ backend/
 
 web/
   index.html            Page structure and reusable HTML templates.
-  app.js                Browser logic, localization, API calls, board editor.
+  app.js                Entry point. Wires events and initialises the app.
+  constants.js          Shared constants (piece definitions, board dimensions).
+  state.js              Mutable app and board state objects.
+  dom.js                Cached DOM element references.
+  i18n.js               Translations and language helpers.
+  api.js                HTTP client for the backend REST API.
+  board.js              Chessboard rendering, FEN conversion, edit mode.
+  views.js              View management and screen rendering.
   styles.css            Visual styling and responsive layout.
 
 puzzles-images/         Your source page photos. HEIC/JPG/PNG/WebP are supported.
@@ -82,7 +89,7 @@ docker-compose.yml      Docker startup config.
 
 ## Localization
 
-The app supports English and Vietnamese in `web/app.js`.
+The app supports English and Vietnamese in `web/i18n.js`.
 
 All visible browser text is stored in the `TRANSLATIONS` object. The helper
 function `t("key")` returns the text for the active language.
@@ -147,8 +154,9 @@ Do not put source photos in `data/`. Put them in `puzzles-images/`.
 
 - `backend/server.py` should stay focused on HTTP details.
 - `backend/exercise_service.py` should own app behavior and cache rules.
-- `web/app.js` owns browser state, localization, API calls, and rendering.
+- The frontend is split into ES modules. See `web/README.md` for the dependency graph.
+- `web/i18n.js` owns translations. `web/board.js` owns the chessboard. `web/views.js` owns screen rendering.
 - If you add new visible text, add it to both `TRANSLATIONS.en` and
-  `TRANSLATIONS.vi`.
+  `TRANSLATIONS.vi` in `web/i18n.js`.
 - If you add a new backend error, give it an `error_code` and map it in
-  `ERROR_TRANSLATION_KEYS` in `web/app.js`.
+  `ERROR_TRANSLATION_KEYS` in `web/i18n.js`.
