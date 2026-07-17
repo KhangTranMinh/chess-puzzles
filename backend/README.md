@@ -3,6 +3,38 @@
 The root `README.md` is the main project guide. This file only covers backend
 workflows that are useful when editing or debugging Python code.
 
+## Module structure
+
+The backend is split into focused modules with clear responsibilities:
+
+```
+server.py               HTTP transport. Routes requests, serves static files.
+exercise_service.py     Facade. Cache coordination and API response building.
+image_repository.py     Source image listing, validation, format checks.
+processing_pipeline.py  Orchestrates board splitting, recognition, and saving.
+board_splitter.py       OpenCV image processing. Detects and crops six boards.
+recognizer.py           Optional chess image to FEN prediction wrapper.
+cache.py                JSON file cache with atomic writes.
+```
+
+Dependency graph (no cycles):
+
+```
+cache.py
+    ↑
+image_repository.py     board_splitter.py ← recognizer.py
+    ↑                          ↑
+    └── exercise_service.py ───┘
+              ↑                  processing_pipeline.py
+              │                       ↑
+           server.py ────────────────┘
+```
+
+- **server.py** knows about HTTP but not about images or caching.
+- **image_repository.py** knows about source files but not about processing.
+- **processing_pipeline.py** knows about board_splitter and recognizer but not about caching.
+- **exercise_service.py** ties everything together for the API layer.
+
 ## Board splitter CLI
 
 Use this command when you want to test only the image-processing step, without
