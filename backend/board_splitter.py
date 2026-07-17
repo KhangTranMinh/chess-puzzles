@@ -22,6 +22,10 @@ import numpy as np
 from PIL import Image
 from pillow_heif import register_heif_opener
 
+# Register HEIF/HEIC support once at import time.  The call is idempotent, but
+# guarding with a flag makes the intent clear: this is a one-time setup step.
+_heif_registered = False
+
 
 EXPECTED_BOARD_COUNT = 6
 DEFAULT_BOARD_SIZE = 800
@@ -42,9 +46,12 @@ class BoardCandidate:
 def load_image(path: Path) -> np.ndarray:
     """Load common image formats and HEIC photos as a BGR OpenCV image."""
 
+    global _heif_registered
     # OpenCV builds often omit HEIC support.  Pillow + pillow-heif makes the
     # source format irrelevant while retaining the original photograph pixels.
-    register_heif_opener()
+    if not _heif_registered:
+        register_heif_opener()
+        _heif_registered = True
     with Image.open(path) as image:
         rgb = np.asarray(image.convert("RGB"))
     return cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)

@@ -47,12 +47,15 @@ http://localhost:8000
 
 ```text
 backend/
-  server.py             HTTP server. Handles URLs, JSON responses, and static files.
-  exercise_service.py   App logic. Lists images, uses cache, crops boards, builds API data.
-  board_splitter.py     OpenCV image processing. Detects six boards and perspective-crops them.
-  recognizer.py         Optional chess image to FEN prediction wrapper.
-  cache.py              Small JSON file cache helper.
-  requirements.txt      Python dependencies.
+  __init__.py             Package marker.
+  server.py               HTTP server. Handles URLs, JSON responses, and static files.
+  exercise_service.py     App facade. Cache coordination and API response building.
+  image_repository.py     Source image listing, validation, format checks.
+  processing_pipeline.py  Orchestrates board splitting, recognition, and saving.
+  board_splitter.py       OpenCV image processing. Detects six boards and perspective-crops them.
+  recognizer.py           Optional chess image to FEN prediction wrapper.
+  cache.py                Small JSON file cache helper.
+  requirements.txt        Python dependencies.
 
 web/
   index.html            Page structure and reusable HTML templates.
@@ -153,7 +156,9 @@ Do not put source photos in `data/`. Put them in `puzzles-images/`.
 ## Development notes
 
 - `backend/server.py` should stay focused on HTTP details.
-- `backend/exercise_service.py` should own app behavior and cache rules.
+- `backend/image_repository.py` owns source image listing and validation.
+- `backend/processing_pipeline.py` owns the split → recognize → save pipeline.
+- `backend/exercise_service.py` is the thin facade tying them together.
 - The frontend is split into ES modules. See `web/README.md` for the dependency graph.
 - `web/i18n.js` owns translations. `web/board.js` owns the chessboard. `web/views.js` owns screen rendering.
 - If you add new visible text, add it to both `TRANSLATIONS.en` and

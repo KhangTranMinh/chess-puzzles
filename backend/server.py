@@ -15,13 +15,15 @@ from urllib.parse import unquote, urlparse
 from backend.board_splitter import BoardDetectionError
 from backend.exercise_service import (
     BOARD_DIRECTORY,
-    InvalidImageNameError,
-    SourceImageNotFoundError,
-    UnsupportedImageFormatError,
     clear_cache,
     ensure_storage,
     image_summaries,
     process_single_image,
+)
+from backend.image_repository import (
+    InvalidImageNameError,
+    SourceImageNotFoundError,
+    UnsupportedImageFormatError,
 )
 
 
